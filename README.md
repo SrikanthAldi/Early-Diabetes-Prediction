@@ -54,11 +54,34 @@ This project demonstrates how **data-driven methods** can support early interven
 | Original Random Forest   | 0.8824   | 0.3669    | 0.3573                | 0.362    | 0.8106|
 | Random Forest + SMOTE    | 0.958    | 0.958     | 0.958                 | 0.958    | 0.958 |
 
-### Conclusion
+## 📊 Model Performance
 
-This project demonstrated the application of machine learning techniques for early prediction of diabetes using a publicly available health dataset. Through exploratory analysis, logistic regression and random forest models were developed and evaluated to identify individuals at risk. While logistic regression offered strong interpretability and solid baseline performance, the Random Forest model, when trained on SMOTE-balanced data, achieved the highest predictive performance across all evaluation metrics, including precision, recall, F1-score, and AUC.
-Addressing class imbalance through SMOTE was a critical step that significantly improved the model's sensitivity in detecting diabetic cases, which is vital in real-world healthcare settings. The project also highlighted the importance of proper preprocessing, feature transformation, and careful model evaluation.
-Overall, the study shows that with thoughtful preprocessing and class-balancing techniques, machine learning models can serve as powerful tools in supporting early diabetes detection and public health decision-making. Future work could explore more advanced models (e.g., gradient boosting or neural networks) and real-time clinical validation to further improve prediction accuracy and deployment potential.
+### Logistic Regression vs Random Forest with SMOTE
+| Model                  | Accuracy | Precision | Recall (Sensitivity) | F1-Score | AUC   |
+|-------------------------|----------|-----------|-----------------------|----------|-------|
+| Logistic Regression     | 0.8981   | 0.4749    | 0.8649                | 0.6131   | 0.9579|
+| Random Forest + SMOTE   | 0.958    | 0.958     | 0.958                 | 0.958    | 0.958 |
+
+---
+
+### Visual Performance Comparison
+![Logistic vs SMOTE RF](docs/logistic-vs-smote-bar.png)
+
+---
+
+## 🔑 Key Insights
+- Logistic Regression provided a strong baseline:  
+  - **High recall (86.5%)** → reliable for detecting diabetic cases  
+  - **AUC = 0.9579** → excellent discriminative ability  
+
+- Random Forest with **SMOTE balancing** outperformed across the board:  
+  - Accuracy: **95.8%**  
+  - Precision, Recall, F1: all **95.8%**  
+  - AUC: **0.958**  
+
+✅ **Conclusion**: Logistic Regression is interpretable and robust, but **Random Forest with SMOTE** achieves superior predictive performance on imbalanced healthcare data.
+
+
 ---
 
 ## 🛠️ Tech Stack
