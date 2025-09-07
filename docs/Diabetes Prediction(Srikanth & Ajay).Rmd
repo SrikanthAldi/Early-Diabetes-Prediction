@@ -1,0 +1,568 @@
+---
+title: "diabetes projectr"
+output: pdf_document
+date: "2025-04-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load libraries
+library(readxl)
+library(tidyverse)
+library(gridExtra)
+library(ggplot2)
+library(forcats)
+library(corrplot)
+
+# Load cleaned dataset
+df <- read_xlsx("diabetes_cleaned.xlsx")
+
+# --- 1. Basic Info ---
+cat("Dataset Shape:\n")
+cat("Rows:", nrow(df), "\nColumns:", ncol(df), "\n\n")
+
+cat("Column Types:\n")
+str(df)
+
+cat("\nMissing Values per Column:\n")
+print(colSums(is.na(df)))
+
+# --- 2. Target Distribution ---
+ggplot(df, aes(x = as.factor(diabetes))) +
+  geom_bar(fill = "#0072B2") +
+  labs(title = "Target Distribution: Diabetes", x = "Diabetes (0 = No, 1 = Yes)", y = "Count")
+
+# --- 3. Distributions of Continuous Variables ---
+p1 <- ggplot(df, aes(x = age)) + geom_histogram(bins = 30, fill = "#56B4E9", color = "black") + ggtitle("Age")
+p2 <- ggplot(df, aes(x = bmi)) + geom_histogram(bins = 30, fill = "#56B4E9", color = "black") + ggtitle("BMI")
+p3 <- ggplot(df, aes(x = HbA1c_level)) + geom_histogram(bins = 30, fill = "#56B4E9", color = "black") + ggtitle("HbA1c Level")
+p4 <- ggplot(df, aes(x = blood_glucose_level)) + geom_histogram(bins = 30, fill = "#56B4E9", color = "black") + ggtitle("Blood Glucose Level")
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+# --- 4. Categorical Variables ---
+ggplot(df, aes(x = gender)) +
+  geom_bar(fill = "#009E73") +
+  labs(title = "Gender Distribution", x = "Gender", y = "Count")
+
+ggplot(df, aes(y = fct_infreq(smoking_history))) +
+  geom_bar(fill = "#D55E00") +
+  labs(title = "Smoking History Distribution", y = "Smoking History", x = "Count")
+
+# --- 5. Boxplots of Features by Diabetes Status ---
+p5 <- ggplot(df, aes(x = as.factor(diabetes), y = age)) + geom_boxplot(fill = "#F0E442") + ggtitle("Age vs Diabetes")
+p6 <- ggplot(df, aes(x = as.factor(diabetes), y = bmi)) + geom_boxplot(fill = "#F0E442") + ggtitle("BMI vs Diabetes")
+p7 <- ggplot(df, aes(x = as.factor(diabetes), y = HbA1c_level)) + geom_boxplot(fill = "#F0E442") + ggtitle("HbA1c vs Diabetes")
+p8 <- ggplot(df, aes(x = as.factor(diabetes), y = blood_glucose_level)) + geom_boxplot(fill = "#F0E442") + ggtitle("Glucose vs Diabetes")
+grid.arrange(p5, p6, p7, p8, ncol = 2)
+
+# --- 6. Correlation Matrix (Numerical Variables Only) ---
+num_df <- df %>%
+  select(age, hypertension, heart_disease, bmi, HbA1c_level, blood_glucose_level, diabetes)
+
+corr_matrix <- cor(num_df, use = "complete.obs")
+corrplot(corr_matrix, method = "color", addCoef.col = "black", tl.cex = 0.8)
+
+```
+```{r}
+# Load required library
+library(dplyr)
+
+# Function to bin a variable and compute log-odds
+log_odds_plot <- function(data, var, bins = 10) {
+  binned <- data %>%
+    mutate(bin = ntile(.data[[var]], bins)) %>%
+    group_by(bin) %>%
+    summarise(
+      mean_value = mean(.data[[var]], na.rm = TRUE),
+      diabetes_rate = mean(diabetes),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      odds = diabetes_rate / (1 - diabetes_rate),
+      log_odds = log(odds)
+    )
+
+  ggplot(binned, aes(x = mean_value, y = log_odds)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    labs(title = paste("Linearity Check:", var),
+         x = paste("Mean", var),
+         y = "Log-Odds of Diabetes")
+}
+
+# Apply to continuous predictors
+log_odds_plot(df, "age")
+log_odds_plot(df, "bmi")
+log_odds_plot(df, "HbA1c_level")
+log_odds_plot(df, "blood_glucose_level")
+```
+
+```{r}
+# Function to detect outliers using IQR
+detect_outliers <- function(column) {
+  Q1 <- quantile(column, 0.25, na.rm = TRUE)
+  Q3 <- quantile(column, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  outliers <- which(column < (Q1 - 1.5 * IQR) | column > (Q3 + 1.5 * IQR))
+  return(outliers)
+}
+
+outlier_summary <- sapply(df[, c("age", "bmi", "HbA1c_level", "blood_glucose_level")], detect_outliers)
+
+# Show number of outliers for each feature
+sapply(outlier_summary, length)
+```
+```{r}
+# Load required library
+library(ggplot2)
+library(gridExtra)
+
+# Boxplot for Age
+p1 <- ggplot(df, aes(y = age)) +
+  geom_boxplot(fill = "#56B4E9", outlier.colour = "red", outlier.shape = 16) +
+  ggtitle("Boxplot of Age")
+
+# Boxplot for BMI
+p2 <- ggplot(df, aes(y = bmi)) +
+  geom_boxplot(fill = "#56B4E9", outlier.colour = "red", outlier.shape = 16) +
+  ggtitle("Boxplot of BMI")
+
+# Boxplot for HbA1c Level
+p3 <- ggplot(df, aes(y = HbA1c_level)) +
+  geom_boxplot(fill = "#56B4E9", outlier.colour = "red", outlier.shape = 16) +
+  ggtitle("Boxplot of HbA1c Level")
+
+# Boxplot for Blood Glucose Level
+p4 <- ggplot(df, aes(y = blood_glucose_level)) +
+  geom_boxplot(fill = "#56B4E9", outlier.colour = "red", outlier.shape = 16) +
+  ggtitle("Boxplot of Blood Glucose Level")
+
+# Arrange all plots in 2x2 grid
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+```
+```{r}
+library(e1071)
+
+# Calculate skewness and kurtosis for continuous features
+skewness_kurtosis <- data.frame(
+  Feature = c("age", "bmi", "HbA1c_level", "blood_glucose_level"),
+  Skewness = sapply(df[, c("age", "bmi", "HbA1c_level", "blood_glucose_level")], skewness),
+  Kurtosis = sapply(df[, c("age", "bmi", "HbA1c_level", "blood_glucose_level")], kurtosis)
+)
+
+print(skewness_kurtosis)
+```
+```{r}
+df <- df %>%
+  mutate(
+    HbA1c_log = log(HbA1c_level),
+    glucose_log = log(blood_glucose_level)
+  )
+```
+
+```{r}
+# Make sure gender and smoking_history are factors
+# Ensure factors
+library(readxl)
+
+df <- read_excel("diabetes_cleaned.xlsx")  # Reloads the original 16,383-row dataset
+
+
+df$gender <- as.factor(df$gender)
+df$smoking_history <- as.factor(df$smoking_history)
+
+df$gender <- as.factor(df$gender)
+df$smoking_history <- as.factor(df$smoking_history)
+
+# Create dummy variables (without intercept to avoid duplication)
+dummies <- model.matrix(~ gender + smoking_history - 1, data = df)
+
+# Convert to dataframe
+dummies <- as.data.frame(dummies)
+
+# Rename columns for clarity
+colnames(dummies) <- colnames(dummies) %>%
+  gsub("genderMale", "gender_M", .) %>%
+  gsub("genderOther", "gender_O", .) %>%
+  gsub("smoking_historynever", "smoke_never", .) %>%
+  gsub("smoking_historycurrent", "smoke_current", .) %>%
+  gsub("smoking_historyformer", "smoke_former", .) %>%
+  gsub("smoking_historynot.current", "smoke_not_current", .) %>%
+  gsub("smoking_historyNo.Info", "smoke_no_info", .)
+```
+```{r}
+# Remove original categorical columns
+df <- df %>% select(-gender, -smoking_history)
+
+# Bind renamed dummy variables
+df <- cbind(df, dummies)
+```
+```{r}
+write.csv(df, "diabetes_transformed.csv", row.names = FALSE)
+```
+
+```{r}
+set.seed(123)
+sample_indices <- sample(1:nrow(df), size = 0.7 * nrow(df))
+train <- df[sample_indices, ]
+test <- df[-sample_indices, ]
+```
+```{r}
+# ---- SMOTE Balancing ----
+library(smotefamily)
+# Convert target to factor
+train$diabetes <- as.factor(train$diabetes)
+
+# Separate features and target
+X <- train[, setdiff(names(train), "diabetes")]
+y <- train$diabetes
+
+# Apply SMOTE
+set.seed(123)
+smote_output <- SMOTE(X, y, K = 5, dup_size = 10)  # K=5 neighbors, dup_size=1 means 100% oversampling
+
+# Combine output into a new training set
+train_smote <- smote_output$data
+names(train_smote)[ncol(train_smote)] <- "diabetes"
+
+# Check new class balance
+table(train_smote$diabetes)
+```
+```{r}
+weights <- ifelse(train$diabetes == 1, 10, 1)
+```
+```{r}
+library(dplyr)
+# Separate majority and minority classes from the training set
+majority <- train %>% filter(diabetes == 0)
+minority <- train %>% filter(diabetes == 1)
+
+# Sample 3000 rows from majority (non-diabetic) class
+set.seed(123)
+majority_sample <- majority %>% sample_n(3000)
+
+# Combine with all minority (diabetic) records
+train_rf <- bind_rows(majority_sample, minority)
+
+# Shuffle the rows (optional but recommended)
+train_rf <- train_rf %>% sample_frac(1)
+
+# Check new class balance
+table(train_rf$diabetes)
+```
+```{r}
+colnames(train)
+colnames(train_rf)
+```
+```{r}
+# Apply log transformation
+df <- df %>%
+  mutate(
+    HbA1c_log = log(HbA1c_level),
+    glucose_log = log(blood_glucose_level)
+  )
+```
+```{r}
+set.seed(123)
+sample_indices <- sample(1:nrow(df), size = 0.7 * nrow(df))
+train <- df[sample_indices, ]
+test <- df[-sample_indices, ]
+```
+```{r}
+# Assign weights: higher for diabetic class
+train$weight <- ifelse(train$diabetes == 1, 10, 1)
+```
+```{r}
+log_model_no_log <- glm(diabetes ~ age + bmi + HbA1c_level + blood_glucose_level + 
+                          hypertension + heart_disease +
+                          gender_M + gender_O + 
+                          smoke_former + smoke_never + 
+                          smoke_no_info + smoke_not_current + smoking_historyever,
+                        data = train,
+                        family = binomial,
+                        weights = weight)
+
+summary(log_model_no_log)
+
+```
+```{r}
+log_model <- glm(diabetes ~ age + bmi + HbA1c_log + glucose_log + hypertension + heart_disease +
+                   gender_M + gender_O + 
+                   smoke_former + smoke_never + 
+                   smoke_no_info + smoke_not_current + smoking_historyever,
+                 data = train,
+                 family = binomial,
+                 weights = weight)
+summary(log_model)
+```
+```{r}
+# Predict on training set
+train$log_pred_prob <- predict(log_model, newdata = train, type = "response")
+train$log_pred_class <- ifelse(train$log_pred_prob > 0.5, 1, 0)
+
+# Evaluate
+library(caret)
+confusionMatrix(factor(train$log_pred_class), factor(train$diabetes), positive = "1")
+
+# AUC
+library(pROC)
+roc_log_train <- roc(train$diabetes, train$log_pred_prob)
+auc(roc_log_train)
+```
+```{r}
+ #Plot fitted values
+library(ggplot2)
+
+ggplot(train, aes(x = log_pred_prob, y = as.numeric(diabetes))) +
+  geom_jitter(height = 0.05, width = 0, alpha = 0.3, color = "gray") +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),
+              se = FALSE, color = "blue", linewidth = 1.2) +
+  labs(
+    title = "Fitted Values: Predicted Probability vs Actual Outcome",
+    x = "Predicted Probability",
+    y = "Actual Outcome (0 = No, 1 = Yes)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# Predict probabilities on test set
+test$log_pred_prob <- predict(log_model, newdata = test, type = "response")
+
+# Predict class labels using 0.5 threshold
+test$log_pred_class <- ifelse(test$log_pred_prob > 0.5, 1, 0)
+```
+```{r}
+# Confusion matrix
+table(Predicted = test$log_pred_class, Actual = test$diabetes)
+```
+```{r}
+# Load caret for metrics
+library(caret)
+
+confusionMatrix(factor(test$log_pred_class), factor(test$diabetes), positive = "1")
+```
+```{r}
+library(pROC)
+
+# ROC curve
+roc_log <- roc(test$diabetes, test$log_pred_prob)
+
+# Plot it
+plot(roc_log, main = "ROC Curve - Logistic Regression", col = "blue")
+
+# Get AUC
+auc(roc_log)
+```
+```{r}
+# Applying random forest model 
+  library(randomForest)
+```
+```{r}
+rf_model <- randomForest(as.factor(diabetes) ~ age + bmi  + hypertension + heart_disease +
+                   gender_M + gender_O + 
+                   smoke_former + smoke_never + 
+                   smoke_no_info + smoke_not_current + smoking_historyever,
+                   data = train_rf,
+                   ntree = 500,
+                   mtry = 3,
+                   importance = TRUE)
+summary(rf_model)
+```
+```{r}
+# Predict on training_rf set
+train_rf$rf_pred_prob <- predict(rf_model, newdata = train_rf, type = "prob")[, 2]
+train_rf$rf_pred_class <- predict(rf_model, newdata = train_rf, type = "response")
+
+# Evaluate
+confusionMatrix(factor(train_rf$rf_pred_class), factor(train_rf$diabetes), positive = "1")
+
+# AUC
+roc_rf_train <- roc(train_rf$diabetes, train_rf$rf_pred_prob)
+auc(roc_rf_train)
+```
+```{r}
+test$rf_pred_prob <- predict(rf_model, newdata = test, type = "prob")[, 2]
+test$rf_pred_class <- predict(rf_model, newdata = test, type = "response")
+```
+```{r}
+library(caret)
+
+confusionMatrix(factor(test$rf_pred_class), factor(test$diabetes), positive = "1")
+```
+```{r}
+library(pROC)
+
+rf_roc <- roc(test$diabetes, test$rf_pred_prob)
+plot(rf_roc, main = "ROC Curve - Random Forest", col = "darkgreen")
+auc(rf_roc)
+```
+```{r}
+plot(roc_log, col = "blue", main = "ROC Curve Comparison")
+plot(rf_roc, col = "darkgreen", add = TRUE)
+legend("bottomright", legend = c("Logistic", "Random Forest"),
+       col = c("blue", "darkgreen"), lwd = 2)
+```
+```{r}
+importance(rf_model)
+varImpPlot(rf_model)
+rf_model$confusion
+plot(rf_model)  # Useful to decide if you need more or fewer trees
+```
+```{r}
+# Extract metrics for Logistic Regression
+log_cm <- confusionMatrix(factor(test$log_pred_class), factor(test$diabetes), positive = "1")
+log_metrics <- c(
+  Accuracy = log_cm$overall["Accuracy"],
+  Precision = log_cm$byClass["Pos Pred Value"],
+  Recall = log_cm$byClass["Sensitivity"],
+  F1_Score = log_cm$byClass["F1"],
+  AUC = auc(roc_log)
+)
+
+# Extract metrics for Random Forest
+rf_cm <- confusionMatrix(factor(test$rf_pred_class), factor(test$diabetes), positive = "1")
+rf_metrics <- c(
+  Accuracy = rf_cm$overall["Accuracy"],
+  Precision = rf_cm$byClass["Pos Pred Value"],
+  Recall = rf_cm$byClass["Sensitivity"],
+  F1_Score = rf_cm$byClass["F1"],
+  AUC = auc(rf_roc)
+)
+
+# Combine into one table
+performance_summary <- rbind(
+  Logistic_Regression = log_metrics,
+  Random_Forest = rf_metrics
+)
+
+# Show table
+round(performance_summary, 4)
+
+```
+
+# Conclusion: Based on model evaluation metrics, logistic regression significantly outperformed random forest across all key indicators: accuracy, recall, F1-score, and AUC. Most importantly, its high recall (86.5%) and AUC (0.9579) make it a highly reliable model for early diabetes detection. Random forest struggled with recall and F1-score, likely due to undersampling and data imbalance, making logistic regression the preferred choice for this application.
+
+```{r}
+library(randomForest)
+
+rf_model_smote <- randomForest(
+  as.factor(diabetes) ~ .,
+  data = train_smote,
+  ntree = 500,
+  mtry = 3,
+  importance = TRUE
+)
+```
+```{r}
+test$rf_smote_pred_prob <- predict(rf_model_smote, newdata = test, type = "prob")[, 2]
+test$rf_smote_pred_class <- predict(rf_model_smote, newdata = test, type = "response")
+
+library(caret)
+confusionMatrix(factor(test$rf_smote_pred_class), factor(test$diabetes), positive = "1")
+
+library(pROC)
+rf_smote_roc <- roc(test$diabetes, test$rf_smote_pred_prob)
+auc(rf_smote_roc)
+auc_smote <- auc(rf_smote_roc)
+
+```
+```{r}
+plot(rf_smote_roc,
+     main = "ROC Curve - Random Forest (SMOTE Balanced)",
+     col = "darkgreen",
+     lwd = 2)
+```
+```{r}
+library(ggplot2)
+library(caret)
+
+# Get confusion matrix
+cm <- confusionMatrix(factor(test$rf_smote_pred_class), factor(test$diabetes), positive = "1")
+cm_table <- as.data.frame(cm$table)
+
+# Plot heatmap
+ggplot(cm_table, aes(x = Reference, y = Prediction, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Freq), size = 6, color = "black") +
+  scale_fill_gradient(low = "#e0f3db", high = "#43a2ca") +
+  labs(title = "Confusion Matrix: Random Forest with SMOTE") +
+  theme_minimal()
+```
+```{r}
+library(PRROC)
+
+pr <- pr.curve(scores.class0 = test$rf_smote_pred_prob[test$diabetes == "1"],
+               scores.class1 = test$rf_smote_pred_prob[test$diabetes == "0"],
+               curve = TRUE)
+
+plot(pr, main = "Precision-Recall Curve - Random Forest (SMOTE)", color = "blue")
+```
+```{r}
+varImpPlot(rf_model_smote,
+           main = "Feature Importance - Random Forest (SMOTE)",
+           pch = 16,
+           col = "#2c7bb6")
+```
+```{r}
+# Define the metrics
+rf_smote_metrics <- c(
+  Accuracy = rf_model_smote$overall["Accuracy"],
+  Precision = rf_model_smote$byClass["Pos Pred Value"],
+  Recall = rf_model_smote$byClass["Sensitivity"],
+  F1_Score = rf_model_smote$byClass["F1"],
+  AUC = auc_smote
+)
+
+# Print metrics
+print(round(rf_smote_metrics, 4))
+
+```
+```{r}
+comparison <- rbind(Original_RF = rf_metrics, SMOTE_RF = rf_smote_metrics)
+round(comparison, 4)
+```
+```{r}
+library(ggplot2)
+library(reshape2)
+
+# Melt the comparison matrix into long format
+df_plot <- melt(comparison)
+colnames(df_plot) <- c("Model", "Metric", "Value")
+```
+```{r}
+ggplot(df_plot, aes(x = Metric, y = Value, fill = Model)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Performance Comparison: Original RF vs SMOTE RF",
+       y = "Score", x = "") +
+  scale_fill_manual(values = c("steelblue", "darkorange")) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+```{r}
+# combining both log and smote model to see comparision
+
+comparison <- rbind(Logistic_Regression = log_metrics, SMOTE_RF = rf_smote_metrics)
+round(comparison, 4)
+```
+```{r}
+library(ggplot2)
+library(reshape2)
+
+df_plot <- melt(comparison)
+colnames(df_plot) <- c("Model", "Metric", "Value")
+
+ggplot(df_plot, aes(x = Metric, y = Value, fill = Model)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Logistic Regression vs SMOTE Random Forest",
+       y = "Score", x = "") +
+  scale_fill_manual(values = c("darkblue", "orange")) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
