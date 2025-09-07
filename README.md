@@ -35,6 +35,25 @@ This project demonstrates how **data-driven methods** can support early interven
 ---
 
 ## 📈 Results
+### Logistic Regression: Log Transformation Impact
+
+| Metric                  | Without Log Transformation | With Log Transformation |
+|--------------------------|----------------------------|--------------------------|
+| **Residual Deviance**    | 9591.4                     | 9584.2                   |
+| **AIC**                  | 9619.4                     | 9612.2                   |
+| **Significance**         | Similar overall            | Improved stability       |
+| **Interpretability**     | Original scale             | Log scale                |
+| **Effect size (HbA1c)**  | 2.34                       | 14.41                    |
+| **Effect size (Glucose)**| 0.031                      | 5.02                     |
+
+Log transformation of glucose and HbA1c improved model stability and interpretability.
+
+Effect sizes became more meaningful (HbA1c jumped from 2.34 → 14.41, Glucose from 0.031 → 5.02).
+
+Performance metrics (Residual Deviance and AIC) showed slight improvement.
+
+Takeaway: Feature transformation enhances regression models, especially when predictors show non-linear relationships with the outcome.
+
 ### Logistic Regression vs Random Forest
 
 | Metric      | Logistic (Train) | Random Forest (Train) | Logistic (Test) | Random Forest (Test) |
